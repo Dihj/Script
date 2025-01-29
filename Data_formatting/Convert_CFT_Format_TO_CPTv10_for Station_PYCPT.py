@@ -1,36 +1,35 @@
 ##########################################################################################
 ############### To Convert CFT monthly data format to CPTv10 format   ####################
 ###############                  Dihj Jan 2024                        ####################
+##########################################################################################
+##########################################################################################
 #########################        Edit only here     ######################################
-##########################################################################################
-##########################################################################################
-
 import pandas as pd
 import numpy as np
 
 # Input and output file paths
 input_csv = "CFT_RR_monthly_synop_MON-MERGING.csv"
 output_file = "Modif_cpt_formatFMA.tsv"
-missing_value = "-9999"
-# Define the period of interest (choose a season or a single month)
-selected_period = "FMA"
+missing_value = "-9999" # Your missing value in CFT, this will be also your missing value in CPTv10
+# Define the period of interest (for a season, 3 accumulated month)
+selected_period = "FMA" # FMA, JFM, NDJ ...
 
 ########################################################################################
 
 # Dictionary mapping seasons to month numbers
 SEASON_MONTHS = {
-    "DJF": [12, 1, 2],
-    "MAM": [3, 4, 5],
-    "JJA": [6, 7, 8],
-    "SON": [9, 10, 11],
-    "FMA": [2, 3, 4],
     "NDJ": [11, 12, 1],
-    "OND": [10, 11, 12],
+    "DJF": [12, 1, 2],
     "JFM": [1, 2, 3],
-    "AMJ": [4, 5, 6],
+    "FMA": [2, 3, 4],
+    "MAM": [3, 4, 5],
+    "AMJ": [4, 5, 6], 
     "MJJ": [5, 6, 7],
+    "JJA": [6, 7, 8],
     "JAS": [7, 8, 9],
     "ASO": [8, 9, 10],
+    "SON": [9, 10, 11],
+    "OND": [10, 11, 12],
 }
 
 # Helper function to map seasons to corresponding month numbers
@@ -46,23 +45,23 @@ def calculate_seasonal_accum(df, months, season):
 
     # Include Lat and Lon columns when processing the seasonal data
     for _, row in df.iterrows():
-        year = row["Year,,"]
+        year = row["Year"]
         lat = row["Lat"]
         lon = row["Lon"]
 
-        if season in ["DJF", "NDJ,"]:  # Handle seasons spanning two years
+        if season in ["DJF", "NDJ"]:  # Spanning two years
             # Skip processing if next year doesn't exist in the available years
             if year == last_year and (year + 1) in available_years:
-                continue  # Skip this year if next year's data (e.g., 2025) doesn't exist
+                continue  # Skip this year+1 if not exist in data
 
             values = []
             for month in months:
-                if month in [11, 12]:  # Use current year's data
+                if month in [11, 12]:  # for NDJ or DJF
                     month_name = pd.Timestamp(year=year, month=month, day=1).strftime("%b")
                     values.append(row[month_name])
-                elif month == 1:  # Use next year's data (check if next year is available)
+                elif month == 1:  # January
                     next_year = year + 1
-                    if next_year in available_years:  # Only include next year's data if it's available
+                    if next_year in available_years:  
                         month_name = pd.Timestamp(year=next_year, month=month, day=1).strftime("%b")
                         values.append(df.loc[(df["Year"] == next_year), month_name].values[0])
                     else:
@@ -77,11 +76,11 @@ def calculate_seasonal_accum(df, months, season):
 
             # Check data lenght
             if len(values) == 3:  # Ensure all months are available for the season
-                if any(np.isnan(value) for value in values):  # Rehefa mis missing def NaN
+                if any(np.isnan(value) for value in values):  # If missing, append NaN
                     seasonal_accum = np.nan  
                 else:
                     seasonal_accum = np.nansum(values)  # Calculate accumulation
-                    seasonal_accum = round(seasonal_accum,, 2)
+                    seasonal_accum = round(seasonal_accum, 2)
                 t_value = f"{year}-{months[0]:02d}/{year + 1}-{months[-1]:02d}"  # Format
                 results.append({"T": t_value, "Year": year, "Value": seasonal_accum, "Lat": lat, "Lon": lon})
 
@@ -154,9 +153,9 @@ cpt_df.columns = [f"{round(lat, 5)},{round(lon, 5)}" for lat, lon in cpt_df.colu
 # Construct CPT header metadata
 header = [
     "xmlns:cpt=http://iri.columbia.edu/CPT/v10/",
-    f"cpt:nfields=2",
+    f"cpt:nfields=1",
     "cpt:T\t" + "\t".join(map(str, cpt_df.index)),
-    f"cpt:field=prcp, cpt:nrow={len(cpt_df.index)}, cpt:ncol={len(cpt_df.columns)}, cpt:row=T, cpt:col=station, cpt:units=inches, cpt:missing={missing_value}"
+    f"cpt:field=prcp, cpt:nrow={len(cpt_df.index)}, cpt:ncol={len(cpt_df.columns)}, cpt:row=T, cpt:col=station, cpt:units=mm, cpt:missing={missing_value}"
 ]
 
 # Generate station metadata
