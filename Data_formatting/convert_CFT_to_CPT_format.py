@@ -3,21 +3,10 @@
 ###############                  Dihj Jan 2024                        ####################
 ##########################################################################################
 ##########################################################################################
-#########################        Edit only here     ######################################
 import pandas as pd
 import numpy as np
 import sys
 
-# Input and output file paths
-#input_csv = "CFT_RR_monthly_synop_MON-MERGING.csv"
-#output_file = "Modif_cpt_formatFMA.tsv"
-#missing_value = "-9999" # Your missing value in CFT, this will be also your missing value in CPTv10
-# Define the period of interest (for a season, 3 accumulated month)
-#selected_period = "FMA" # FMA, JFM, NDJ ...
-
-########################################################################################
-
-# Dictionary mapping seasons to month numbers
 SEASON_MONTHS = {
     "NDJ": [11, 12, 1],
     "DJF": [12, 1, 2],
@@ -32,19 +21,12 @@ SEASON_MONTHS = {
     "SON": [9, 10, 11],
     "OND": [10, 11, 12],
 }
-
-# Helper function to map seasons to corresponding month numbers
 def season_to_months(season):
     return SEASON_MONTHS.get(season, [])
-
-# Helper function to compute seasonal or monthly data
-
 def calculate_seasonal_accum(df, months, season):
     results = []
     available_years = set(df["Year"].unique())
     last_year = max(available_years)  # Get the last available year
-
-    # Include Lat and Lon columns when processing the seasonal data
     for _, row in df.iterrows():
         year = row["Year"]
         lat = row["Lat"]
@@ -54,13 +36,12 @@ def calculate_seasonal_accum(df, months, season):
             # Skip processing if next year doesn't exist in the available years
             if year == last_year and (year + 1) in available_years:
                 continue  # Skip this year+1 if not exist in data
-
             values = []
             for month in months:
                 if month in [11, 12]:  # for NDJ or DJF
                     month_name = pd.Timestamp(year=year, month=month, day=1).strftime("%b")
                     values.append(row[month_name])
-                elif month == 1:  # January
+                elif month == 1:
                     next_year = year + 1
                     if next_year in available_years:  
                         month_name = pd.Timestamp(year=next_year, month=month, day=1).strftime("%b")
@@ -74,8 +55,6 @@ def calculate_seasonal_accum(df, months, season):
                         values.append(df.loc[(df["Year"] == next_year), month_name].values[0])
                     else:
                         values.append(np.nan)  # If next year is not available, append NaN
-
-            # Check data lenght
             if len(values) == 3:  # Ensure all months are available for the season
                 if any(np.isnan(value) for value in values):  # If missing, append NaN
                     seasonal_accum = np.nan  
@@ -93,8 +72,6 @@ def calculate_seasonal_accum(df, months, season):
                     values.append(row[month_name])
                 else:
                     values.append(np.nan)  # Add NaN if the month is missing from the data
-
-            # Check if we have enough months for the season and no missing data
             if len(values) == len(months):  # Ensure we have all months for the season
                 if any(np.isnan(value) for value in values):  # Check for missing data
                     seasonal_accum = np.nan  # Set to NaN if any value is missing
@@ -103,10 +80,8 @@ def calculate_seasonal_accum(df, months, season):
                     seasonal_accum = round(seasonal_accum, 2)
                 t_value = f"{year}-{months[0]:02d}/{year}-{months[-1]:02d}"  # Format
                 results.append({"T": t_value, "Year": year, "Value": seasonal_accum, "Lat": lat, "Lon": lon})
-
     return pd.DataFrame(results)
-
-# Main function
+    
 def main():
     if len(sys.argv) != 4:
         print("-----------------------")
@@ -142,8 +117,7 @@ def main():
 
     # Check if 'Lat' and 'Lon' columns are present in the grouped data
     if 'Lat' not in df_grouped.columns or 'Lon' not in df_grouped.columns:
-        raise ValueError("Columns 'Lat' and 'Lon' must be present in the input data.")
-
+        raise ValueError("Ensure you have CFT data format as input data.")
     # Convert negative values to missing
     df_grouped.loc[df_grouped["Value"] < 0, "Value"] = np.nan
     # Filter out rows with NaN values in the 'Value' column
@@ -160,12 +134,6 @@ def main():
     #cpt_df = cpt_df.dropna(how="all")
     cpt_df = cpt_df.fillna(-999.9)
     missing_value = "-999.9"
-    #if missing_value == "":
-    #    cpt_df = cpt_df.fillna(-999.9)
-    #    missing_value = "-999.9"
-    #else:
-    #    cpt_df = cpt_df.fillna(missing_value)
-    # Flatten the multi-index columns
     cpt_df.columns = [f"{round(lat, 3)},{round(lon, 3)}" for lat, lon in cpt_df.columns]
 
     # Construct CPT header metadata
