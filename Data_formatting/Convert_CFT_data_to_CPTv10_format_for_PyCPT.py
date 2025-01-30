@@ -146,7 +146,11 @@ cpt_df = df_grouped.pivot_table(
 # Ensure there are no empty rows in the pivoted data
 #cpt_df = cpt_df.dropna(how="all")
 #cpt_df = cpt_df.fillna(-9999)
-cpt_df = cpt_df.fillna(missing_value)
+if missing_value == "":
+    cpt_df = cpt_df.fillna(-999.9)
+    missing_value = "-999.9"
+else:
+    cpt_df = cpt_df.fillna(missing_value)
 # Flatten the multi-index columns
 cpt_df.columns = [f"{round(lat, 5)},{round(lon, 5)}" for lat, lon in cpt_df.columns]
 
